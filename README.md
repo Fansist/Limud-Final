@@ -188,6 +188,55 @@ production-grade dependency.
 | `npm run db:generate`| `prisma generate` — regenerate the typed client after a schema edit.               |
 | `npm run db:push`    | `prisma db push` — push schema to the database (we do not use `prisma migrate`).   |
 | `npm run db:seed`    | Seed a real Postgres instance with a mirror of the demo dataset.                   |
+| `npm run render-build` | Render's build command: `prisma generate && next build`.                        |
+
+---
+
+## Deploying to Render
+
+Limud runs on Render at `https://limud.co` (custom domain) and
+`https://limud-1.onrender.com` (Render-issued subdomain). Configure the
+service like this:
+
+- **Build command:** `npm run render-build`
+  (this is `prisma generate && next build` — the explicit `prisma
+  generate` keeps `@prisma/client` types fresh even when the build
+  cache reuses `node_modules`. `postinstall` also runs it as a belt-
+  and-suspenders.)
+- **Start command:** `npm start`
+- **Node version:** 18.18 or newer (we set `engines.node` accordingly).
+- **Health check path:** `/`
+
+### Required environment variables
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | The Render Postgres connection string (Internal URL is fine — same VPC). |
+| `NEXTAUTH_URL` | `https://limud.co` (the canonical public origin). |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32`. |
+| `GEMINI_API_KEY` | Optional — leave blank to ship with the AI-offline indicator visible. |
+| `RESEND_API_KEY` | Optional — leave blank for the "email not configured" digest path. |
+| `LIMUD_ALLOW_INSECURE_PARENT_LINK` | Leave **unset** in production. The endpoint will 503 until a real `Student.inviteCode` flow lands. |
+
+### One-shot schema push
+
+The schema is frozen for this iteration but new deployments still need
+the tables created. From a one-off Render shell (or your laptop with
+the production `DATABASE_URL`):
+
+```bash
+npx prisma db push
+```
+
+We use `db push` instead of `prisma migrate` per the brief.
+
+### Two domains, one origin
+
+If users may hit `https://limud-1.onrender.com` directly, set Render's
+**Redirect rule** on that subdomain to `https://limud.co` so cookies
+stay on a single origin and `NEXTAUTH_URL` matches the request host.
+Otherwise sign-in cookies set on one domain won't be sent on the
+other.
 
 ---
 
