@@ -138,6 +138,9 @@ export default async function ParentChildPage({ params }: PageProps): Promise<JS
         user: true,
         mastery: { include: { node: true }, orderBy: { lastSeenAt: "desc" } },
         submissions: {
+          // Per ROLES-GUIDE, parents see GRADED work only. In-grading
+          // and DRAFT remain private to the student + teacher.
+          where: { status: { in: ["GRADED", "RETURNED"] } },
           include: { unit: { include: { classroom: true } } },
           orderBy: { updatedAt: "desc" }
         },

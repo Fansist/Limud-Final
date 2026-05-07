@@ -3,6 +3,7 @@
 // Demo mode: no DB write, returns { ok: true, id: "demo-submission-1" }.
 
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import {
   AuthError,
   authErrorResponse,
@@ -10,21 +11,24 @@ import {
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-type Body = {
-  unitId?: unknown;
-  bodyText?: unknown;
-  action?: unknown;
-};
+const SubmissionSchema = z.object({
+  unitId: z.string().min(1).max(64),
+  bodyText: z.string().max(50_000),
+  action: z.enum(["draft", "submit"])
+});
 
 export async function POST(req: Request): Promise<Response> {
   try {
     const viewer = await requireRole("STUDENT");
-    const body = (await req.json().catch(() => null)) as Body | null;
-    if (!body) throw new AuthError(400, "Invalid JSON");
-    const unitId = typeof body.unitId === "string" ? body.unitId : null;
-    const bodyText = typeof body.bodyText === "string" ? body.bodyText : "";
-    const action = body.action === "submit" ? "submit" : "draft";
-    if (!unitId) throw new AuthError(400, "Missing unitId");
+    const raw = (await req.json().catch(() => null)) as unknown;
+    const parsed = SubmissionSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid input", issues: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const { unitId, bodyText, action } = parsed.data;
 
     if (viewer.kind === "demo") {
       return NextResponse.json({ ok: true, id: "demo-submission-1" });

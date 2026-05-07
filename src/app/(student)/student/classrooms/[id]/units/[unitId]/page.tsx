@@ -5,7 +5,6 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { Role } from "@prisma/client";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -183,7 +182,7 @@ export default async function StudentUnitPage({
 }: {
   params: { id: string; unitId: string };
 }) {
-  const viewer = await requireRole("STUDENT" as Role);
+  const viewer = await requireRole("STUDENT");
   const data: Loaded | null =
     viewer.kind === "demo"
       ? await loadDemo(

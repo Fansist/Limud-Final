@@ -66,9 +66,10 @@ export async function GET(_req: Request, ctx: RouteContext): Promise<Response> {
         user: true,
         mastery: { include: { node: true } },
         submissions: {
-          // Drafts are excluded — parents can read graded work only per
-          // ROLES-GUIDE.
-          where: { status: { in: ["GRADED", "RETURNED", "SUBMITTED"] } },
+          // Per ROLES-GUIDE, parents read GRADED work only. Excluding
+          // SUBMITTED (in-grading) and DRAFT preserves the kid's ability
+          // to revise without parental visibility into in-progress work.
+          where: { status: { in: ["GRADED", "RETURNED"] } },
           include: { unit: { include: { classroom: true } } },
           orderBy: { updatedAt: "desc" }
         }

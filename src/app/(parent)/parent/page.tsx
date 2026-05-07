@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { Empty } from "@/components/Empty";
 import { requireRole } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { DEMO_PARENT, findDemoStudent } from "@/lib/demo/data";
 import { cn } from "@/lib/utils";
@@ -127,6 +128,19 @@ export default async function ParentChildrenPage() {
         });
       }
     }
+  }
+
+  // Aggregate cross-role read of every linked child's grades + mastery.
+  // Audit once per dashboard load. The helper no-ops in demo mode.
+  if (cards.length > 0) {
+    await audit({
+      viewer,
+      event: "CROSS_ROLE_VIEW",
+      payload: {
+        surface: "parent-dashboard",
+        childIds: cards.map((c) => c.studentId)
+      }
+    });
   }
 
   const trendLabel: Record<ChildCardData["trend"], string> = {

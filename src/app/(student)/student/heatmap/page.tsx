@@ -1,7 +1,6 @@
 // Knowledge heatmap. Horizontal bars of mastery per topic, with
 // confidence intervals as error bars and a small trend legend.
 
-import type { Role } from "@prisma/client";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { findDemoStudent } from "@/lib/demo/data";
@@ -44,7 +43,7 @@ function trendArrow(trend: "up" | "flat" | "down"): string {
 }
 
 export default async function StudentHeatmapPage() {
-  const viewer = await requireRole("STUDENT" as Role);
+  const viewer = await requireRole("STUDENT");
   const rowsRaw =
     viewer.kind === "demo"
       ? await loadDemo(viewer.demoStudentId ?? "demo-student-maya")

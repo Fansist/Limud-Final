@@ -24,7 +24,16 @@ export async function GET(req: Request): Promise<Response> {
         viewer,
         event: "CROSS_ROLE_VIEW",
         subjectId: view.bundle.unitId,
-        payload: { surface: "api-admin-audit" }
+        payload: { surface: "api-admin-audit", target: "material-bundle" }
+      });
+    }
+    // The list view itself paginates over every district student id.
+    // Leave a trace per non-empty list query.
+    if (view.rows.length > 0 && viewer.kind === "user") {
+      await audit({
+        viewer,
+        event: "CROSS_ROLE_VIEW",
+        payload: { surface: "api-admin-audit", target: "audit-list", count: view.rows.length }
       });
     }
     return NextResponse.json(view);

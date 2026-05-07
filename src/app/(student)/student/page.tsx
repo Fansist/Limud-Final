@@ -6,7 +6,6 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DEMO_UNITS, findDemoStudent } from "@/lib/demo/data";
-import type { Role } from "@prisma/client";
 import { formatRelative, pct } from "@/lib/utils";
 import { Empty } from "@/components/Empty";
 
@@ -153,7 +152,7 @@ async function loadReal(userId: string): Promise<DashboardData> {
 }
 
 export default async function StudentDashboardPage() {
-  const viewer = await requireRole("STUDENT" as Role);
+  const viewer = await requireRole("STUDENT");
   const data: DashboardData =
     viewer.kind === "demo"
       ? await loadDemo(viewer.demoStudentId ?? "demo-student-maya")

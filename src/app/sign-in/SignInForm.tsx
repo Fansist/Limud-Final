@@ -28,7 +28,17 @@ export function SignInForm() {
       setErr("That didn't work. Check your email and password.");
       return;
     }
-    router.push(sp.get("callbackUrl") ?? "/");
+    router.push(safeCallback(sp.get("callbackUrl")));
+  }
+
+  // Refuse anything that isn't a same-origin relative path so a phisher
+  // can't seed `?callbackUrl=https://attacker.example/` and bounce a
+  // freshly-signed-in user to a credential trap.
+  function safeCallback(raw: string | null): string {
+    if (!raw) return "/";
+    if (!raw.startsWith("/")) return "/";
+    if (raw.startsWith("//")) return "/";
+    return raw;
   }
 
   return (

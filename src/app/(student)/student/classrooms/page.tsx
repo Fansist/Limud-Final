@@ -1,7 +1,6 @@
 // Classrooms list. Each card: subject + teacher + grade sparkline.
 
 import Link from "next/link";
-import type { Role } from "@prisma/client";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -85,7 +84,7 @@ async function loadReal(userId: string): Promise<ClassroomCard[]> {
 }
 
 export default async function StudentClassroomsPage() {
-  const viewer = await requireRole("STUDENT" as Role);
+  const viewer = await requireRole("STUDENT");
   const cards: ClassroomCard[] =
     viewer.kind === "demo"
       ? await loadDemo(viewer.demoStudentId ?? "demo-student-maya")

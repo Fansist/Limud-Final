@@ -34,14 +34,18 @@ const RegisterSchema = z.object({
     .max(20)
 });
 
+// Real-mode parent linking is gated until the schema gains a proper
+// `Student.inviteCode` column. The brief and ROLES-GUIDE require that
+// new ParentChild links be created ONLY through an unguessable invite
+// code issued by the school — never via email or raw Student id. The
+// stub matcher (email-or-id) is held behind LIMUD_ALLOW_INSECURE_PARENT_LINK
+// so it cannot be silently enabled in production.
 async function findStudentByInviteCode(
   inviteCode: string
 ): Promise<{ id: string } | null> {
-  // STUB: schema lacks a Student.inviteCode column. We accept either
-  // the child's email (if it looks like one) or the raw Student id as
-  // a temporary stand-in. Replace with:
-  //   prisma.student.findUnique({ where: { inviteCode } })
-  // once a real `inviteCode` field is added.
+  if (process.env.LIMUD_ALLOW_INSECURE_PARENT_LINK !== "true") {
+    return null;
+  }
   if (inviteCode.includes("@")) {
     const user = await prisma.user.findUnique({
       where: { email: inviteCode.toLowerCase() },
@@ -57,6 +61,20 @@ async function findStudentByInviteCode(
 }
 
 export async function POST(req: Request): Promise<Response> {
+  try {
+    return await handlePost(req);
+  } catch (err) {
+    // Don't leak Prisma stack traces; return a friendly 500.
+    const message =
+      err instanceof Error ? err.message : "Internal error";
+    return NextResponse.json(
+      { error: "Could not complete registration", reason: message },
+      { status: 500 }
+    );
+  }
+}
+
+async function handlePost(req: Request): Promise<Response> {
   const viewer = await getViewer();
 
   // In demo mode, never touch the DB. Validate the shape so the form
@@ -89,6 +107,16 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json(
       { error: "An account with that email already exists." },
       { status: 409 }
+    );
+  }
+
+  if (process.env.LIMUD_ALLOW_INSECURE_PARENT_LINK !== "true") {
+    return NextResponse.json(
+      {
+        error:
+          "Parent registration requires school-issued invite codes. This deployment hasn't wired the school invite-code provisioning flow yet, so we can't create new parent-child links here. Try the demo (?demo=true) for the parent walkthrough."
+      },
+      { status: 503 }
     );
   }
 

@@ -16,7 +16,7 @@ import { notFound } from "next/navigation";
 import { AIOfflineBadge } from "@/components/AIOfflineBadge";
 import { AuthError, requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { personalizeMaterial } from "@/lib/ai/personalize";
+import { personalizeMaterial, profileHash } from "@/lib/ai/personalize";
 import { prisma } from "@/lib/prisma";
 import {
   DEMO_PARENT,
@@ -132,13 +132,57 @@ export default async function ParentMaterialPage({
       learningStyles: csvList(child.learningStyles),
       interests: csvList(child.interests)
     };
-    const result = await personalizeMaterial({
-      sourceHtml: unit.material.sourceHtml,
-      objectives: parseObjectives(unit.material.objectives),
-      profile
+    // Use the same MaterialRender row the child sees so the parent
+    // reads the EXACT version their kid is reading. Without this we'd
+    // call personalize a second time and (with stochastic models) show
+    // the parent a different render.
+    const hash = profileHash(profile);
+    const cached = await prisma.materialRender.findUnique({
+      where: {
+        materialId_studentId: {
+          materialId: unit.material.id,
+          studentId: child.id
+        }
+      }
     });
-    renderedHtml = result.html;
-    offline = result.offline;
+    const cacheValid =
+      cached &&
+      cached.profileHash === hash &&
+      cached.createdAt >= unit.material.updatedAt;
+    if (cacheValid) {
+      renderedHtml = cached.renderedHtml;
+      offline = cached.isOffline;
+    } else {
+      const result = await personalizeMaterial({
+        sourceHtml: unit.material.sourceHtml,
+        objectives: parseObjectives(unit.material.objectives),
+        profile
+      });
+      renderedHtml = result.html;
+      offline = result.offline;
+      await prisma.materialRender.upsert({
+        where: {
+          materialId_studentId: {
+            materialId: unit.material.id,
+            studentId: child.id
+          }
+        },
+        create: {
+          materialId: unit.material.id,
+          studentId: child.id,
+          renderedHtml: result.html,
+          profileHash: hash,
+          modelUsed: result.modelUsed,
+          isOffline: result.offline
+        },
+        update: {
+          renderedHtml: result.html,
+          profileHash: hash,
+          modelUsed: result.modelUsed,
+          isOffline: result.offline
+        }
+      });
+    }
   }
 
   // Audit cross-role read regardless of demo (no-ops in demo mode).

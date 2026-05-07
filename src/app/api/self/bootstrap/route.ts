@@ -14,6 +14,7 @@ import { z } from "zod";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { DEMO_COOKIE } from "@/lib/demo/mode";
+import { getViewer } from "@/lib/auth";
 
 const ChildSchema = z.object({
   name: z.string().min(1).max(120),
@@ -62,6 +63,18 @@ export async function POST(req: Request): Promise<Response> {
   // Demo mode: never persist. The brief explicitly says short-circuit.
   if (inDemoMode()) {
     return NextResponse.json({ ok: true, demo: true });
+  }
+
+  // Bootstrapping a new homeschool family is a sign-up flow — only
+  // valid for visitors who don't already have an account. A signed-in
+  // STUDENT/TEACHER/PARENT/ADMIN must not be able to spawn a
+  // SELF_ED district under arbitrary emails.
+  const viewer = await getViewer();
+  if (viewer && viewer.kind === "user") {
+    return NextResponse.json(
+      { error: "Sign out first to start a new homeschool family." },
+      { status: 403 }
+    );
   }
 
   const raw = await req.json().catch(() => null);
