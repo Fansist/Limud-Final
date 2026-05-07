@@ -1,0 +1,421 @@
+// Limud — Adaptive Learning Platform
+// The two-upload model is the spine: every Unit has exactly one Assignment
+// (uniform across the class) and exactly one Material (auto-personalized
+// per student via MaterialRender). Never collapse these.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------
+// Identity & roles
+// ----------------------------------------------------------------------
+
+enum Role {
+  STUDENT
+  TEACHER
+  PARENT
+  DISTRICT_ADMIN
+  // Self-education mode: a parent who is also the teacher for their
+  // children. Bound to a "district of one".
+  SELF_ED
+  // The master demo account used for showcase walkthroughs.
+  DEMO
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  role          Role
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  student       Student?
+  teacher       Teacher?
+  parent        Parent?
+  admin         DistrictAdmin?
+
+  // NextAuth bindings
+  accounts      Account[]
+  sessions      Session[]
+
+  auditLogs     AuditLog[]    @relation("AuditActor")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ----------------------------------------------------------------------
+// District, classrooms, enrollment
+// ----------------------------------------------------------------------
+
+model District {
+  id        String   @id @default(cuid())
+  name      String
+  // SELF_ED users get a "district of one" so the same engine works for
+  // homeschool / independent learners.
+  isSelfEd  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  classrooms Classroom[]
+  admins     DistrictAdmin[]
+  teachers   Teacher[]
+  students   Student[]
+}
+
+model DistrictAdmin {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  districtId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+}
+
+model Teacher {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  districtId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  classrooms Classroom[]
+}
+
+model Parent {
+  id        String        @id @default(cuid())
+  userId    String        @unique
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children  ParentChild[]
+}
+
+model Student {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  districtId   String
+  gradeLevel   Int
+  // Lexile measurement; 0 = unknown.
+  lexile       Int      @default(0)
+  // Primary instruction language code, e.g. "en", "es".
+  language     String   @default("en")
+  // Comma-separated tags representing learning styles. Multiple are
+  // allowed because most learners blend modalities.
+  // Allowed values: visual, auditory, kinesthetic, reading_writing,
+  // social, solitary, logical
+  learningStyles String  @default("visual")
+  // Free-form interest tags (Marvel, basketball, K-pop, baking, etc.)
+  // surfaced from the student's onboarding.
+  interests    String   @default("")
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  district     District  @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  enrollments  Enrollment[]
+  renders      MaterialRender[]
+  mastery      MasteryRecord[]
+  submissions  Submission[]
+  tutorSessions TutorSession[]
+  parents      ParentChild[]
+}
+
+model ParentChild {
+  id        String   @id @default(cuid())
+  parentId  String
+  studentId String
+  parent    Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+}
+
+model Classroom {
+  id          String   @id @default(cuid())
+  districtId  String
+  teacherId   String
+  name        String
+  subject     String
+  gradeLevel  Int
+  createdAt   DateTime @default(now())
+
+  district    District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
+  units       Unit[]
+}
+
+model Enrollment {
+  id           String    @id @default(cuid())
+  classroomId  String
+  studentId    String
+  enrolledAt   DateTime  @default(now())
+
+  classroom    Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([classroomId, studentId])
+}
+
+// ----------------------------------------------------------------------
+// THE SPINE: Unit -> { Assignment (uniform), Material (per-student render) }
+// ----------------------------------------------------------------------
+
+model Unit {
+  id          String     @id @default(cuid())
+  classroomId String
+  title       String
+  description String?
+  topicTags   String     @default("")
+  publishedAt DateTime?
+  dueAt       DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  classroom   Classroom    @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  // A unit has exactly one assignment and exactly one material source.
+  // Enforce 1:1 in app code; the schema models them as separate tables to
+  // keep the spine visible.
+  assignment  Assignment?
+  material    Material?
+  submissions Submission[]
+}
+
+// ASSIGNMENT — identical for every student. The bar everyone is measured
+// against. Personalization NEVER touches this side.
+model Assignment {
+  id           String   @id @default(cuid())
+  unitId       String   @unique
+  // Plain text or HTML for v0.1. File upload deferred.
+  bodyHtml     String   @db.Text
+  // JSON rubric: { criteria: [{ name, weight, description }] }
+  rubricJson   String   @db.Text
+  // JSON answer key for auto-graded items.
+  answerKey    String?  @db.Text
+  pointsTotal  Int      @default(100)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  unit         Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+}
+
+// MATERIAL — the source teaching content. The AI reads this and produces
+// per-student renders in MaterialRender. Never shown raw to students;
+// students only see their own MaterialRender.
+model Material {
+  id          String   @id @default(cuid())
+  unitId      String   @unique
+  // The source content the teacher uploaded.
+  sourceHtml  String   @db.Text
+  // Reading level of the source (target Lexile). Personalization adjusts
+  // down for students with lower Lexile.
+  sourceLexile Int     @default(0)
+  // Learning objectives the personalization MUST preserve in every render.
+  // JSON array of strings.
+  objectives  String   @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  renders     MaterialRender[]
+}
+
+// MATERIAL RENDER — per-student personalized version of a Material.
+// Cached so we don't re-call the model on every page view. Invalidated
+// when the student's profile (style/interests/lexile/language) changes
+// or when the teacher republishes the Material.
+model MaterialRender {
+  id          String   @id @default(cuid())
+  materialId  String
+  studentId   String
+  // The personalized HTML the student sees.
+  renderedHtml String  @db.Text
+  // Snapshot of the student profile at render time (so invalidation
+  // can compare).
+  profileHash String
+  // Which model produced this render. Empty string = demo / offline.
+  modelUsed   String   @default("")
+  // True when the render is the offline demo fallback. UI MUST show
+  // the AI-offline indicator when this is true.
+  isOffline   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  material    Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([materialId, studentId])
+  @@index([studentId])
+}
+
+// ----------------------------------------------------------------------
+// Submissions & feedback
+// ----------------------------------------------------------------------
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  GRADED
+  RETURNED
+}
+
+model Submission {
+  id           String           @id @default(cuid())
+  unitId       String
+  studentId    String
+  bodyText     String           @db.Text
+  status       SubmissionStatus @default(DRAFT)
+  submittedAt  DateTime?
+  // Auto-grade against Assignment.rubricJson; teacher can override.
+  scoreAuto    Int?
+  scoreFinal   Int?
+  // AI-drafted feedback the teacher edits before sending.
+  feedbackDraft String?         @db.Text
+  feedbackFinal String?         @db.Text
+  feedbackOffline Boolean       @default(false)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  unit         Unit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  student      Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([unitId, studentId])
+  @@index([studentId])
+}
+
+// ----------------------------------------------------------------------
+// Knowledge graph & mastery (Detect step)
+// ----------------------------------------------------------------------
+
+model KnowledgeNode {
+  id          String   @id @default(cuid())
+  // Subject or course this topic belongs to (e.g. "World History").
+  subject     String
+  // Human-readable topic name.
+  topic       String
+  // Slug for URLs.
+  slug        String   @unique
+  // Comma-separated slugs of prerequisite KnowledgeNodes.
+  prereqs     String   @default("")
+  createdAt   DateTime @default(now())
+
+  mastery     MasteryRecord[]
+}
+
+enum FailureMode {
+  CONCEPTUAL_GAP
+  CARELESS_ERROR
+  PREREQ_MISSING
+  READING_BARRIER
+  ANXIETY
+  DISENGAGEMENT
+}
+
+model MasteryRecord {
+  id          String         @id @default(cuid())
+  studentId   String
+  nodeId      String
+  // 0..1, smoothed.
+  mastery     Float          @default(0)
+  // 95% CI half-width, 0..1.
+  confidence  Float          @default(0)
+  lastFailureMode FailureMode?
+  lastSeenAt  DateTime       @default(now())
+
+  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  node        KnowledgeNode  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, nodeId])
+  @@index([studentId])
+}
+
+// ----------------------------------------------------------------------
+// AI tutor sessions
+// ----------------------------------------------------------------------
+
+enum TutorMode {
+  SOCRATIC
+  DIRECT
+}
+
+model TutorSession {
+  id          String     @id @default(cuid())
+  studentId   String
+  unitId      String?
+  mode        TutorMode  @default(SOCRATIC)
+  // JSON array of { role: "student" | "tutor", content: string, ts: ISO }
+  transcript  String     @db.Text
+  isOffline   Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  student     Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+}
+
+// ----------------------------------------------------------------------
+// Audit log (FERPA + curriculum compliance)
+// ----------------------------------------------------------------------
+
+enum AuditEvent {
+  MATERIAL_RENDERED
+  MATERIAL_REVIEWED
+  ASSIGNMENT_PUBLISHED
+  SUBMISSION_GRADED
+  TUTOR_SESSION_OPENED
+  CROSS_ROLE_VIEW
+  EXPORT
+}
+
+model AuditLog {
+  id          String     @id @default(cuid())
+  actorUserId String
+  event       AuditEvent
+  // Free-form JSON payload.
+  payload     String     @db.Text
+  // Subject the event is about (studentId, unitId, etc.).
+  subjectId   String?
+  createdAt   DateTime   @default(now())
+
+  actor       User       @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([actorUserId])
+  @@index([subjectId])
+  @@index([event])
+}
