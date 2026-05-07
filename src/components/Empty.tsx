@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Inbox } from "lucide-react";
 
 type Props = {
   title: string;
@@ -8,11 +9,12 @@ type Props = {
 
 export function Empty({ title, body, action }: Props) {
   return (
-    <div className="card flex flex-col items-start gap-3 p-8">
-      <h3 className="text-lg font-semibold">{title}</h3>
-      {body ? <p className="text-ink-soft">{body}</p> : null}
+    <div className="empty-state">
+      <Inbox size={40} strokeWidth={1.5} aria-hidden />
+      <h3>{title}</h3>
+      {body ? <p>{body}</p> : null}
       {action ? (
-        <Link className="btn-outline mt-2" href={action.href}>
+        <Link className="btn-secondary mt-5" href={action.href}>
           {action.label}
         </Link>
       ) : null}

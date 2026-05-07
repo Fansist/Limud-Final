@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown, UserCog } from "lucide-react";
 
 const ROLES: Array<{ value: string; label: string; href: string }> = [
   { value: "STUDENT:demo-student-maya", label: "Student — Maya (visual)", href: "/student" },
@@ -14,7 +15,9 @@ const ROLES: Array<{ value: string; label: string; href: string }> = [
 ];
 
 export function RoleSwitcher({ current }: { current?: string }) {
-  const [value, setValue] = useState<string>(current ?? "STUDENT:demo-student-maya");
+  const [value, setValue] = useState<string>(
+    current ?? "STUDENT:demo-student-maya"
+  );
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -33,20 +36,35 @@ export function RoleSwitcher({ current }: { current?: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <label htmlFor="role" className="text-ink-muted">Demo as:</label>
-      <select
-        id="role"
-        className="input max-w-xs"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={pending}
-      >
-        {ROLES.map((r) => (
-          <option key={r.value} value={r.value}>{r.label}</option>
-        ))}
-      </select>
-      {pending ? <span className="text-ink-muted text-xs">switching…</span> : null}
-    </div>
+    <label className="flex items-center gap-2 text-sm">
+      <span className="hidden sm:inline-flex items-center gap-1.5 text-gray-500">
+        <UserCog size={16} strokeWidth={2} aria-hidden />
+        Demo as
+      </span>
+      <span className="relative">
+        <select
+          className="input-field appearance-none pr-9 max-w-xs cursor-pointer"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={pending}
+          aria-label="Switch demo role"
+        >
+          {ROLES.map((r) => (
+            <option key={r.value} value={r.value}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          size={16}
+          strokeWidth={2}
+          aria-hidden
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+        />
+      </span>
+      {pending ? (
+        <span className="text-gray-500 text-xs">switching…</span>
+      ) : null}
+    </label>
   );
 }

@@ -2,87 +2,465 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------
+ * Limud globals.css. Source of truth: VISUAL DESIGN BRIEF.
+ * Inter type. Calm modern surfaces. Generous whitespace. Animations
+ * are gentle and short. Component classes here are canonical — see
+ * tailwind.config.ts for the matching tokens.
+ * ------------------------------------------------------------------ */
+
 @layer base {
   :root {
     color-scheme: light;
+    --font-inter: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    /* Brief §14: scroll-margin so anchored sections aren't hidden by
+       the sticky top-bar. */
+    scroll-behavior: smooth;
+  }
+  html {
+    scroll-behavior: smooth;
   }
   html, body {
-    @apply bg-paper text-ink antialiased;
+    @apply bg-gray-50 text-gray-900 antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "ss01", "cv11";
   }
+  body {
+    font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
   ::selection {
-    @apply bg-brand-200 text-brand-900;
+    @apply bg-primary-200 text-primary-900;
   }
   a {
     @apply underline-offset-2;
   }
+  *:focus-visible {
+    @apply outline-2 outline-primary-500;
+    outline-offset: 2px;
+    outline-style: solid;
+  }
+  [id] {
+    scroll-margin-top: 80px;
+  }
+
+  /* --- Dark mode --- */
+  html.dark {
+    color-scheme: dark;
+  }
+  html.dark body {
+    @apply bg-gray-950 text-gray-100;
+    background-color: #030712;
+  }
+  /* OLED / AMOLED — pure black background. */
+  html.dark.oled body {
+    background-color: #000000;
+  }
+
+  /* --- Green theme — primary remaps to emerald via class override.
+   *  We do this via custom-property swap on the most common surfaces;
+   *  Tailwind utility classes still resolve to the blue tokens unless
+   *  a component opts in by reading from the CSS var. */
+  html.theme-green {
+    --tw-gradient-from-primary: 16 185 129; /* emerald-500 */
+  }
+
+  /* --- High contrast --- */
+  body.high-contrast {
+    background-color: #000 !important;
+    color: #fff !important;
+  }
+  body.high-contrast a,
+  body.high-contrast .btn-primary,
+  body.high-contrast .btn-secondary {
+    border: 2px solid #fff !important;
+  }
+
+  /* --- Dyslexia-friendly font --- */
+  body.dyslexia-font {
+    font-family: "OpenDyslexic", "Comic Sans MS", var(--font-inter), system-ui, sans-serif;
+    letter-spacing: 0.05em;
+    word-spacing: 0.1em;
+    line-height: 1.8;
+  }
+
+  /* Brief §14: touch targets >= 44px on coarse pointers. */
+  @media (pointer: coarse) {
+    button,
+    a[role="button"],
+    [role="button"],
+    .btn-primary,
+    .btn-secondary,
+    .btn-success,
+    .btn-warning,
+    .btn-ghost,
+    .btn-danger,
+    .btn,
+    .btn-outline {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
 }
 
 @layer components {
+  /* ----------------------------------------------------------------
+   * Layout
+   * ------------------------------------------------------------- */
   .container-page {
-    @apply mx-auto w-full max-w-6xl px-6;
+    @apply mx-auto w-full max-w-6xl px-6 sm:px-8;
   }
+
+  /* ----------------------------------------------------------------
+   * Cards
+   * ------------------------------------------------------------- */
   .card {
-    @apply rounded-xl2 bg-white shadow-soft border border-paper-soft;
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all duration-200;
   }
-  .btn {
-    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition;
+  .card:hover {
+    @apply shadow-md;
+  }
+  .card-tight {
+    @apply card p-5;
+  }
+  .card-glass {
+    @apply rounded-2xl p-6 transition-all duration-200;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  }
+  html.dark .card {
+    @apply bg-gray-900 border-gray-800 text-gray-100;
+  }
+  html.dark .card-glass {
+    background: rgba(17, 24, 39, 0.6);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  /* ----------------------------------------------------------------
+   * Buttons (5 canonical variants per brief §7)
+   * ------------------------------------------------------------- */
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-success,
+  .btn-warning,
+  .btn-ghost,
+  .btn-danger,
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-200;
+    @apply bg-primary-600 text-white shadow-sm hover:bg-primary-700 active:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  }
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2;
+  }
+  html.dark .btn-secondary {
+    @apply bg-gray-800 text-gray-100 hover:bg-gray-700;
+  }
+  .btn-success {
+    @apply bg-success-500 text-white shadow-sm hover:bg-success-600 focus:outline-none focus:ring-2 focus:ring-success-500 focus:ring-offset-2;
+  }
+  .btn-warning {
+    @apply bg-warning-500 text-white shadow-sm hover:bg-warning-600 focus:outline-none focus:ring-2 focus:ring-warning-500 focus:ring-offset-2;
   }
   .btn-ghost {
-    @apply btn bg-transparent text-ink hover:bg-paper-soft;
+    @apply bg-transparent text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2;
   }
+  html.dark .btn-ghost {
+    @apply text-gray-300 hover:bg-gray-800;
+  }
+  .btn-danger {
+    @apply bg-red-600 text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
+  }
+  /* Backwards-compatibility alias used by v0.1 role surfaces. */
   .btn-outline {
-    @apply btn border border-ink/15 text-ink hover:bg-paper-soft;
+    @apply bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2;
   }
-  .label {
-    @apply block text-sm font-medium text-ink-soft;
+  html.dark .btn-outline {
+    @apply bg-gray-900 text-gray-100 border-gray-700 hover:bg-gray-800;
   }
-  .input {
-    @apply w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100;
+
+  /* ----------------------------------------------------------------
+   * Inputs
+   * ------------------------------------------------------------- */
+  .input-field,
+  .input,
+  .textarea {
+    @apply w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 placeholder:text-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
   }
   .textarea {
-    @apply input min-h-[10rem] leading-relaxed;
+    @apply min-h-[10rem] leading-relaxed py-3;
   }
+  html.dark .input-field,
+  html.dark .input,
+  html.dark .textarea {
+    @apply bg-gray-900 border-gray-700 text-gray-100 placeholder:text-gray-500;
+  }
+  .label {
+    @apply block text-sm font-semibold text-gray-700;
+  }
+  html.dark .label {
+    @apply text-gray-200;
+  }
+
+  /* ----------------------------------------------------------------
+   * Badges
+   * ------------------------------------------------------------- */
   .badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border;
   }
-  .badge-ok {
-    @apply badge bg-signal-ok/10 text-signal-ok;
+  .badge-primary {
+    @apply badge bg-primary-50 text-primary-700 border-primary-200/60;
   }
-  .badge-warn {
-    @apply badge bg-signal-warn/10 text-signal-warn;
+  .badge-ok,
+  .badge-success {
+    @apply badge bg-success-50 text-success-700 border-success-200;
   }
-  .badge-alert {
-    @apply badge bg-signal-alert/10 text-signal-alert;
+  .badge-warn,
+  .badge-warning {
+    @apply badge bg-warning-50 text-warning-700 border-warning-200;
+  }
+  .badge-alert,
+  .badge-danger {
+    @apply badge bg-red-50 text-red-700 border-red-200;
   }
   .badge-offline {
-    @apply badge bg-signal-offline/10 text-signal-offline border border-signal-offline/30;
+    @apply badge bg-violet-50 text-violet-700 border-violet-200;
+  }
+  html.dark .badge-primary { @apply bg-primary-900/40 text-primary-200 border-primary-800; }
+  html.dark .badge-ok,
+  html.dark .badge-success { @apply bg-success-900/30 text-success-200 border-success-800; }
+  html.dark .badge-warn,
+  html.dark .badge-warning { @apply bg-warning-900/30 text-warning-200 border-warning-800; }
+  html.dark .badge-alert,
+  html.dark .badge-danger { @apply bg-red-900/30 text-red-200 border-red-800; }
+  html.dark .badge-offline { @apply bg-violet-900/30 text-violet-200 border-violet-800; }
+
+  /* ----------------------------------------------------------------
+   * Tabs (pill group with white active lozenge)
+   * ------------------------------------------------------------- */
+  .tab-group {
+    @apply inline-flex items-center gap-1 rounded-full bg-gray-100 p-1;
+  }
+  .tab-item {
+    @apply px-4 py-1.5 rounded-full text-sm font-medium text-gray-500 transition-colors duration-200;
+  }
+  .tab-item-active {
+    @apply bg-white text-gray-900 shadow-sm;
+  }
+  html.dark .tab-group { @apply bg-gray-800; }
+  html.dark .tab-item { @apply text-gray-400; }
+  html.dark .tab-item-active { @apply bg-gray-900 text-gray-100; }
+
+  /* ----------------------------------------------------------------
+   * Filter pills
+   * ------------------------------------------------------------- */
+  .filter-pill {
+    @apply inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors duration-200 hover:bg-gray-200;
+  }
+  .filter-pill-active {
+    @apply bg-primary-100 text-primary-700 hover:bg-primary-100;
+  }
+
+  /* ----------------------------------------------------------------
+   * Sidebar / nav primitives
+   * ------------------------------------------------------------- */
+  .sidebar {
+    @apply hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 md:left-0 md:bg-white md:border-r md:border-gray-100 md:py-6 md:px-4;
+  }
+  .sidebar-link {
+    @apply flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 transition-colors duration-150 hover:bg-primary-50 hover:text-primary-700;
+  }
+  .sidebar-link-active {
+    @apply bg-primary-50 text-primary-700 shadow-sm;
+  }
+  html.dark .sidebar { @apply bg-gray-900 border-gray-800; }
+  html.dark .sidebar-link { @apply text-gray-300 hover:bg-primary-900/30 hover:text-primary-200; }
+  html.dark .sidebar-link-active { @apply bg-primary-900/30 text-primary-200; }
+
+  .bottom-nav {
+    @apply md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-gray-100;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  html.dark .bottom-nav { @apply bg-gray-900/95 border-gray-800; }
+
+  .fab {
+    @apply md:hidden fixed right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg;
+    bottom: calc(80px + env(safe-area-inset-bottom, 0));
+    background: linear-gradient(135deg, #2563eb, #c026d3);
+    box-shadow: 0 10px 24px -4px rgba(37, 99, 235, 0.45);
+  }
+
+  /* Top sticky progress strip — animates while AI is processing. */
+  .progress-strip {
+    @apply fixed top-0 inset-x-0 z-[55] h-[2px];
+    background: linear-gradient(90deg, #6366f1, #8b5cf6, #d946ef);
+    background-size: 200% 100%;
+    animation: gradient-shift 4s ease-in-out infinite;
+  }
+
+  /* ----------------------------------------------------------------
+   * Page header
+   * ------------------------------------------------------------- */
+  .page-header {
+    @apply flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between mb-6;
+  }
+  .page-title {
+    @apply flex items-center gap-3 text-2xl font-bold text-gray-900;
+  }
+  .page-subtitle {
+    @apply text-sm text-gray-500;
+  }
+  html.dark .page-title { @apply text-gray-100; }
+  html.dark .page-subtitle { @apply text-gray-400; }
+
+  /* ----------------------------------------------------------------
+   * Empty states
+   * ------------------------------------------------------------- */
+  .empty-state {
+    @apply card flex flex-col items-center justify-center text-center py-16;
+  }
+  .empty-state svg {
+    @apply text-gray-300;
+  }
+  .empty-state h3 {
+    @apply mt-4 text-lg font-semibold text-gray-700;
+  }
+  .empty-state p {
+    @apply mt-1 text-sm text-gray-500 max-w-md;
+  }
+  html.dark .empty-state h3 { @apply text-gray-200; }
+  html.dark .empty-state p { @apply text-gray-400; }
+
+  /* ----------------------------------------------------------------
+   * Hero / marketing surfaces
+   * ------------------------------------------------------------- */
+  .mesh-gradient {
+    background-image: theme("backgroundImage.mesh-gradient");
+    background-color: theme("colors.gray.50");
+  }
+  html.dark .mesh-gradient {
+    background-color: #0b1220;
+    background-image:
+      radial-gradient(at 12% 18%, rgba(59,130,246,0.22) 0px, transparent 55%),
+      radial-gradient(at 88% 22%, rgba(217,70,239,0.20) 0px, transparent 50%),
+      radial-gradient(at 22% 88%, rgba(16,185,129,0.20) 0px, transparent 55%),
+      radial-gradient(at 78% 78%, rgba(251,146,60,0.18) 0px, transparent 50%),
+      radial-gradient(at 50% 50%, rgba(167,139,250,0.16) 0px, transparent 55%);
+  }
+  .gradient-text {
+    background-image: linear-gradient(90deg, #2563eb, #c026d3);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Skeleton loader (use shimmer animation). */
+  .skeleton {
+    @apply rounded-md bg-gray-200;
+    background-image: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+  html.dark .skeleton { @apply bg-gray-800; }
+
+  /* ----------------------------------------------------------------
+   * Reading content (.prose-limud) — used by personalized material
+   * ------------------------------------------------------------- */
+  .prose-limud :where(h1) {
+    @apply mt-2 mb-4 text-3xl font-bold tracking-tight text-gray-900;
   }
   .prose-limud :where(h2) {
-    @apply mt-6 mb-2 text-xl font-semibold text-ink;
+    @apply mt-6 mb-2 text-xl font-semibold text-gray-900;
   }
   .prose-limud :where(h3) {
-    @apply mt-5 mb-2 text-lg font-semibold text-ink;
+    @apply mt-5 mb-2 text-lg font-semibold text-gray-900;
   }
   .prose-limud :where(p) {
-    @apply my-3 leading-relaxed text-ink;
+    @apply my-3 leading-relaxed text-gray-700 text-base;
   }
   .prose-limud :where(ul, ol) {
-    @apply my-3 ml-6 list-disc space-y-1 text-ink;
+    @apply my-3 ml-6 list-disc space-y-1 text-gray-700;
   }
   .prose-limud :where(ol) {
     @apply list-decimal;
   }
-  .prose-limud :where(figure.panel) {
-    @apply my-4 rounded-lg border border-brand-100 bg-brand-50/50 p-4;
+  .prose-limud :where(strong) {
+    @apply font-semibold text-gray-900;
   }
-  .prose-limud :where(aside.example, aside.ai-personalized, aside.ai-offline-notice) {
-    @apply my-4 rounded-lg border border-accent-warm/40 bg-accent-warm/10 p-4 text-sm;
+  .prose-limud :where(em) {
+    @apply text-gray-700;
+  }
+  .prose-limud :where(figure.panel) {
+    @apply my-4 rounded-2xl border border-primary-100 bg-primary-50/60 p-4;
+  }
+  .prose-limud :where(aside.example, aside.ai-personalized) {
+    @apply my-4 rounded-2xl border border-warning-200 bg-warning-50 p-4 text-sm text-warning-700;
   }
   .prose-limud :where(aside.ai-offline-notice) {
-    @apply border-signal-offline/40 bg-signal-offline/10 text-signal-offline;
+    @apply my-4 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-700;
+  }
+  html.dark .prose-limud :where(h1, h2, h3, strong) { @apply text-gray-100; }
+  html.dark .prose-limud :where(p, ul, ol, em) { @apply text-gray-300; }
+  html.dark .prose-limud :where(figure.panel) {
+    @apply border-primary-800 bg-primary-900/30;
+  }
+
+  /* ----------------------------------------------------------------
+   * AI-active indicator (used near the FAB / live-AI badge)
+   * ------------------------------------------------------------- */
+  .ai-active-dot {
+    @apply inline-block h-2 w-2 rounded-full bg-primary-500;
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.6);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  /* ----------------------------------------------------------------
+   * Hover affordance
+   * ------------------------------------------------------------- */
+  .lift {
+    @apply transition-all duration-200;
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * Print styles — brief §15.
+ * ------------------------------------------------------------------ */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  header,
+  nav,
+  aside,
+  .bottom-nav,
+  .fab,
+  .progress-strip {
+    display: none !important;
+  }
+  .container-page {
+    @apply px-0;
+  }
+  .card,
+  .card-glass {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+  a {
+    color: #000 !important;
+    text-decoration: underline;
+  }
+  .gradient-text {
+    -webkit-text-fill-color: #000 !important;
+    color: #000 !important;
   }
 }
