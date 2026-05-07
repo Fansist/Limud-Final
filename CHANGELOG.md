@@ -44,6 +44,13 @@ addressed the review punch list (4 HIGH + 5 MEDIUM).
   `MATERIAL_RENDERED`, `MATERIAL_REVIEWED`, `ASSIGNMENT_PUBLISHED`,
   `SUBMISSION_GRADED`, `TUTOR_SESSION_OPENED`, `CROSS_ROLE_VIEW`, and
   `EXPORT` event.
+- **Auto-grader on uniform assignments** (`POST
+  /api/student/submissions`): when a student submits and the unit's
+  Assignment carries an `answerKey` (keyword-list or per-question
+  expected-substring shape), Limud computes a `scoreAuto` against the
+  same key for every student. The teacher remains the authority — the
+  grader UI shows the auto-score as the starting value, which the
+  teacher overrides via `scoreFinal`.
 - **Auth viewer pattern** (`src/lib/auth.ts`): `getViewer()`,
   `requireViewer()`, `requireRole(...)`, plus typed `AuthError` and
   `authErrorResponse(...)` so every API route can reject in one line.
@@ -80,6 +87,13 @@ addressed the review punch list (4 HIGH + 5 MEDIUM).
   dev until the schema gains `Student.inviteCode`.
 - `prisma/seed` for production data is best-effort; the demo dataset
   is the canonical example data.
+- Bulk feedback drafting (one-shot draft for every SUBMITTED in a unit)
+  isn't a single endpoint yet — teachers draft per submission.
+- Teacher per-student knowledge view shows the profile snapshot; the
+  deeper "knowledge graph + intervention log" view is stubbed.
+- The seed script does not write `KnowledgeNode` / `MasteryRecord`
+  rows yet, so a freshly-seeded real DB has empty heatmaps until
+  classroom interaction populates them.
 
 ### Security
 
